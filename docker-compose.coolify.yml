@@ -3,7 +3,7 @@ version: "3.9"
 services:
   raganything-api:
     build:
-      context: ../..
+      context: .
       dockerfile: deploy/coolify/Dockerfile
     container_name: raganything-api
     expose:
