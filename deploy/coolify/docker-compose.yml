@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  raganything-api:
+    build:
+      context: ../..
+      dockerfile: deploy/coolify/Dockerfile
+    container_name: raganything-api
+    expose:
+      - "8000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      RAGANYTHING_TOKEN: ${RAGANYTHING_TOKEN:-}
+      WORK_DIR: /data
+    volumes:
+      - raganything-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  raganything-data:

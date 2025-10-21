@@ -7,6 +7,7 @@ This guide walks through exposing RAG-Anything as a FastAPI microservice that ca
 ```
 deploy/coolify/
 ├─ Dockerfile
+├─ docker-compose.yml
 ├─ requirements.txt
 └─ app/
    └─ main.py
@@ -26,6 +27,16 @@ Build context should point at the repository root so the Dockerfile and app fold
 ### Persisted storage
 
 Mount a Coolify volume to `/data` so document indexes survive container restarts and updates.
+
+## Using Docker Compose (alternative)
+
+If you prefer Coolify's “Docker Compose” application type, reuse the provided file `deploy/coolify/docker-compose.yml`. Key pointers:
+
+1. In Coolify choose **Create → Docker Compose** and point the repository to this branch.
+2. Leave the compose file path at `deploy/coolify/docker-compose.yml` (Coolify reads it automatically).
+3. Under **Environment Variables**, add `OPENAI_API_KEY`, optional `OPENAI_BASE_URL`, and `RAGANYTHING_TOKEN`.
+4. Coolify will create the named volume `raganything-data` automatically during the first deploy and mount it to `/data`.
+5. The compose file already defines the health check and exposes port `8000`; Traefik handles TLS and routing.
 
 ## Coolify steps
 
