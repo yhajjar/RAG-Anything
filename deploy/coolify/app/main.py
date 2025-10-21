@@ -81,6 +81,15 @@ class QueryBody(BaseModel):
     token: Optional[str] = None
 
 
+@app.get("/")
+async def root():
+    return {
+        "ok": True,
+        "message": "RAG-Anything API ready. Use /ingest and /query endpoints.",
+        "healthz": "/healthz",
+    }
+
+
 @app.get("/healthz")
 async def healthz():
     return {"ok": True, "working_dir": WORK_DIR}
