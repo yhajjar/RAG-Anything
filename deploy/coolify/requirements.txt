@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+raganything[all]
+requests
