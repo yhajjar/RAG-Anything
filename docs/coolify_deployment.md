@@ -39,7 +39,7 @@ Build context should point at the repository root so the Dockerfile and app fold
 
 Mount a Coolify volume to `/data` so workspace folders survive container restarts and updates. Each workspace lives under `DATA_ROOT/<workspace_id>`.
 
-> **Tip:** The Docker image forces CPU PyTorch wheels via `PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu`. If you deploy to GPU hardware, override that environment variable in Coolify so CUDA wheels are used instead.
+> **Tip:** The Docker image forces CPU PyTorch wheels via `PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu`. If you deploy to GPU hardware, override that environment variable in Coolify so CUDA wheels are used instead. System packages installed for parsing include LibreOffice, poppler, tesseract, Ghostscript, fonts, plus `libgl1`/`libglib2.0-0` for MinerU’s OpenCV bindings—leave them in place unless you know you don’t need those features.
 
 ## Using Docker Compose (alternative)
 

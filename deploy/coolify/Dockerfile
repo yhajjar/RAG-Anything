@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     ghostscript \
     fonts-dejavu \
+    libgl1 \
+    libglib2.0-0 \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
