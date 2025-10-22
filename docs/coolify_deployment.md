@@ -26,12 +26,15 @@ Build context should point at the repository root so the Dockerfile and app fold
 | --- | --- | --- |
 | `OPENAI_API_KEY` | ✅ | Key with access to `gpt-4o-mini` and `text-embedding-3-large` |
 | `OPENAI_BASE_URL` | optional | Override for Azure/OpenRouter compatible endpoints |
-| `RAGANYTHING_TOKEN` | optional | Shared secret enforced on `/ingest` and `/query` |
-| `WORK_DIR` | optional | Defaults to `/data`; keep it pointing at the mounted volume |
+| `APP_TOKEN` | ✅ | Shared secret validated via `X-Webhook-Token` or Bearer auth |
+| `DATA_ROOT` | optional | Defaults to `/data/out`; working dir root for workspaces |
+| `DEFAULT_PARSER` | optional | `mineru` (default) or `docling` |
+| `DEFAULT_PARSE_METHOD` | optional | `auto`, `ocr`, or `txt` |
+| `CACHE_TTL_SECONDS` | optional | Idle cache eviction window (default 1800) |
 
 ### Persisted storage
 
-Mount a Coolify volume to `/data` so document indexes survive container restarts and updates.
+Mount a Coolify volume to `/data` so workspace folders survive container restarts and updates. Each workspace lives under `DATA_ROOT/<workspace_id>`.
 
 ## Using Docker Compose (alternative)
 
@@ -46,11 +49,11 @@ If you prefer Coolify's “Docker Compose” application type, reuse the provide
 ## Coolify steps
 
 1. Create a new **Application → Dockerfile** deployment and link this repository.
-2. Leave build settings at default (Dockerfile located in `deploy/coolify/Dockerfile`).
-3. Add the environment variables from the table above.
+2. Set Dockerfile path to `deploy/coolify/Dockerfile`.
+3. Add the environment variables from the table above (`OPENAI_API_KEY`, `APP_TOKEN`, etc.).
 4. Attach a volume and mount it to `/data`.
-5. Keep the default exposed port `8000` and configure the health check to use `/healthz`.
-6. Deploy; the container will start `uvicorn` with the FastAPI wrapper.
+5. Keep the exposed port at `8000` and configure the health check to use `/healthz`.
+6. Deploy; the container will start `uvicorn` serving the workspace API.
 
 ### Quick health test
 
@@ -60,29 +63,40 @@ curl -fsS https://<coolify-domain>/healthz
 
 ## Using the API from n8n
 
+The FastAPI service exposes workspace-scoped endpoints:
+
+- `POST /workspaces/{workspace}/ingest`
+- `POST /workspaces/{workspace}/query`
+- `POST /workspaces/{workspace}/generate/course`
+- `POST /workspaces/{workspace}/generate/assessment`
+- `POST /workspaces/{workspace}/reset`
+- `GET  /workspaces/{workspace}/stats`
+- `DELETE /workspaces/{workspace}`
+
 1. Add an **HTTP Request** node.
-2. Set the URL to `https://<coolify-domain>/ingest` or `/query`.
+2. Set the URL to the desired workspace endpoint, e.g., `https://<coolify-domain>/workspaces/{{ $json.workspace_id }}/ingest`.
 3. Choose method `POST`, body content type `JSON`, and add a JSON payload for the respective endpoint:
 
 ```json
-{
-  "file_url": "https://example.com/manual.pdf",
-  "filename": "manual.pdf",
-  "doc_id": "oven-manual",
-  "token": "YOUR_SHARED_TOKEN"
-}
+{ 
+  "reset": true,
+  "parser": "mineru",
+  "parse_method": "auto",
+  "urls": ["https://example.com/manual.pdf"],
+  "texts": [{"filename":"notes.md","text":"Intro text"}]
+} 
 ```
 
 ```json
 {
-  "question": "How do I install the Impava oven?",
+  "query": "Summarize safety requirements and cite sources.",
   "mode": "hybrid",
-  "token": "YOUR_SHARED_TOKEN"
+  "top_k": 10
 }
 ```
 
-4. Store `YOUR_SHARED_TOKEN` in n8n credentials or environment variables and map it into the JSON field.
-5. Chain downstream workflow nodes to handle the `answer` and `sources` attributes from the response.
+4. Set header `X-Webhook-Token: {{ $env.APP_TOKEN }}`.
+5. Chain downstream workflow nodes to handle responses (`answer`, `stats`, or structured generation outputs).
 
 ### Optional: ingest base64 content
 
@@ -92,8 +106,7 @@ If n8n downloads a file within the workflow, switch the HTTP node to send:
 {
   "file_b64": "{{ $json[\"fileData\"] }}",
   "filename": "upload.pdf",
-  "doc_id": "doc-001",
-  "token": "YOUR_SHARED_TOKEN"
+  "parser": "mineru"
 }
 ```
 
@@ -102,4 +115,5 @@ Provide a preceding node that base64 encodes the binary data (e.g., n8n's **Move
 ## Next steps
 
 - Protect the endpoint with your preferred gateway (Cloudflare, API Gateway, etc.) if you need more than shared-secret security.
-- Swap in alternate `parser` or `parse_method` options in `deploy/coolify/app/main.py` to fine-tune ingestion behaviour.
+- Tune parser defaults or cache eviction (`CACHE_TTL_SECONDS`) via environment variables.
+- Extend the prompts in `deploy/coolify/app/main.py` if you need additional generation endpoints.
