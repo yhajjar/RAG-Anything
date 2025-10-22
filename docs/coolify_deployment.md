@@ -39,6 +39,8 @@ Build context should point at the repository root so the Dockerfile and app fold
 
 Mount a Coolify volume to `/data` so workspace folders survive container restarts and updates. Each workspace lives under `DATA_ROOT/<workspace_id>`.
 
+> **Tip:** The Docker image forces CPU PyTorch wheels via `PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu`. If you deploy to GPU hardware, override that environment variable in Coolify so CUDA wheels are used instead.
+
 ## Using Docker Compose (alternative)
 
 If you prefer Coolify's “Docker Compose” application type, reuse the provided file `docker-compose.coolify.yml` at the repository root. Key pointers:
