@@ -102,34 +102,43 @@ class WorkspaceManager:
         entry = self._instances.get(key)
         if entry:
             entry["last_used"] = datetime.now(timezone.utc)
-            return entry["rag"]
+            rag = entry["rag"]
+        else:
+            working_dir = self._workspace_dir(workspace)
+            cfg = RAGAnythingConfig(
+                working_dir=str(working_dir),
+                parser=parser_engine,
+                parse_method=parse_method,
+                enable_image_processing=True,
+                enable_table_processing=True,
+                enable_equation_processing=True,
+            )
+            rag = RAGAnything(
+                config=cfg,
+                llm_model_func=lambda prompt, system_prompt=None, history_messages=None, **kwargs: openai_complete_if_cache(
+                    LLM_MODEL,
+                    prompt,
+                    system_prompt=system_prompt,
+                    history_messages=history_messages or [],
+                    api_key=OPENAI_API_KEY,
+                    base_url=OPENAI_BASE_URL or None,
+                    **kwargs,
+                ),
+                embedding_func=self.embedding_func,
+            )
+            self._instances[key] = {
+                "rag": rag,
+                "last_used": datetime.now(timezone.utc),
+            }
 
-        working_dir = self._workspace_dir(workspace)
-        cfg = RAGAnythingConfig(
-            working_dir=str(working_dir),
-            parser=parser_engine,
-            parse_method=parse_method,
-            enable_image_processing=True,
-            enable_table_processing=True,
-            enable_equation_processing=True,
-        )
-        rag = RAGAnything(
-            config=cfg,
-            llm_model_func=lambda prompt, system_prompt=None, history_messages=None, **kwargs: openai_complete_if_cache(
-                LLM_MODEL,
-                prompt,
-                system_prompt=system_prompt,
-                history_messages=history_messages or [],
-                api_key=OPENAI_API_KEY,
-                base_url=OPENAI_BASE_URL or None,
-                **kwargs,
-            ),
-            embedding_func=self.embedding_func,
-        )
-        self._instances[key] = {
-            "rag": rag,
-            "last_used": datetime.now(timezone.utc),
-        }
+        ensure_result = await rag._ensure_lightrag_initialized()
+        if isinstance(ensure_result, dict) and not ensure_result.get("success", True):
+            raise HTTPException(
+                status_code=500,
+                detail=ensure_result.get(
+                    "error", "Failed to initialize LightRAG storages"
+                ),
+            )
         return rag
 
     async def clear_workspace(self, workspace: str) -> None:
