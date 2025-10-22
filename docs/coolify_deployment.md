@@ -30,6 +30,9 @@ Build context should point at the repository root so the Dockerfile and app fold
 | `DATA_ROOT` | optional | Defaults to `/data/out`; working dir root for workspaces |
 | `DEFAULT_PARSER` | optional | `mineru` (default) or `docling` |
 | `DEFAULT_PARSE_METHOD` | optional | `auto`, `ocr`, or `txt` |
+| `LLM_MODEL` | optional | Defaults to `gpt-4o-mini`; model passed to RAG LLM calls |
+| `EMBEDDING_MODEL` | optional | Defaults to `text-embedding-3-large` |
+| `EMBEDDING_DIM` | optional | Dimension matching the embedding model (default 3072) |
 | `CACHE_TTL_SECONDS` | optional | Idle cache eviction window (default 1800) |
 
 ### Persisted storage

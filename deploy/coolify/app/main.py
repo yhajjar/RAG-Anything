@@ -14,6 +14,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from lightrag.llm.openai import openai_complete_if_cache, openai_embed
+from lightrag.utils import EmbeddingFunc
 from raganything import RAGAnything, RAGAnythingConfig
 
 APP_TOKEN = os.getenv("APP_TOKEN", os.getenv("RAGANYTHING_TOKEN", "changeme"))
@@ -21,6 +23,15 @@ DATA_ROOT = Path(os.getenv("DATA_ROOT", os.getenv("WORK_DIR", "/data/out")))
 DEFAULT_PARSER = os.getenv("DEFAULT_PARSER", "mineru")
 DEFAULT_PARSE_METHOD = os.getenv("DEFAULT_PARSE_METHOD", "auto")
 CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "1800"))
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "3072"))
+
+if not OPENAI_API_KEY:
+    raise RuntimeError("OPENAI_API_KEY is required")
 
 DATA_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -38,6 +49,16 @@ class WorkspaceManager:
         self.base_dir = base_dir
         self._instances: Dict[str, Dict[str, Any]] = {}
         self._locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self.embedding_func = EmbeddingFunc(
+            embedding_dim=EMBEDDING_DIM,
+            max_token_size=8192,
+            func=lambda texts: openai_embed(
+                texts,
+                model=EMBEDDING_MODEL,
+                api_key=OPENAI_API_KEY,
+                base_url=OPENAI_BASE_URL or None,
+            ),
+        )
 
     def _key(self, workspace: str, parser_engine: str, parse_method: str) -> str:
         return f"{workspace}:{parser_engine}:{parse_method}"
@@ -92,7 +113,19 @@ class WorkspaceManager:
             enable_table_processing=True,
             enable_equation_processing=True,
         )
-        rag = RAGAnything(config=cfg)
+        rag = RAGAnything(
+            config=cfg,
+            llm_model_func=lambda prompt, system_prompt=None, history_messages=None, **kwargs: openai_complete_if_cache(
+                LLM_MODEL,
+                prompt,
+                system_prompt=system_prompt,
+                history_messages=history_messages or [],
+                api_key=OPENAI_API_KEY,
+                base_url=OPENAI_BASE_URL or None,
+                **kwargs,
+            ),
+            embedding_func=self.embedding_func,
+        )
         self._instances[key] = {
             "rag": rag,
             "last_used": datetime.now(timezone.utc),
