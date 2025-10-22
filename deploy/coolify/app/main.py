@@ -327,8 +327,14 @@ async def ingest_workspace(
             for url in body.urls:
                 name = url.split("?")[0].split("/")[-1] or "remote_file"
                 dest = workspace_dir / name
-                response = await client.get(url)
-                response.raise_for_status()
+                try:
+                    response = await client.get(url)
+                    response.raise_for_status()
+                except httpx.HTTPError as exc:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Failed to download {url}: {exc}",
+                    ) from exc
                 dest.write_bytes(response.content)
                 saved_paths.append(dest)
 
